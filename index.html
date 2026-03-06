@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>해커톤 통합 모니터링 대시보드</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --safe-color: #2ecc71;
+            --warn-color: #f1c40f;
+            --danger-color: #e74c3c;
+            --text-main: #2c3e50;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 { margin-bottom: 10px; }
+        .last-update { font-size: 0.9em; color: #666; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 25px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .team-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-top: 8px solid #ddd;
+        }
+
+        .team-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.1);
+        }
+
+        /* 표절 점수 상태별 스타일 */
+        .status-safe { border-top-color: var(--safe-color); }
+        .status-warn { border-top-color: var(--warn-color); }
+        .status-danger { border-top-color: var(--danger-color); }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .team-info h2 { margin: 0; font-size: 1.4em; }
+        .team-info p { margin: 4px 0; color: #7f8c8d; font-size: 0.9em; }
+
+        .plag-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85em;
+            color: white;
+        }
+
+        .bg-safe { background-color: var(--safe-color); }
+        .bg-warn { background-color: var(--warn-color); color: #2c3e50; }
+        .bg-danger { background-color: var(--danger-color); }
+
+        .repobeats-img {
+            width: 100%;
+            border-radius: 8px;
+            background: #fafafa;
+            min-height: 200px;
+            display: block;
+        }
+
+        .footer-links {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+            font-
