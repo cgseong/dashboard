@@ -91,4 +91,80 @@
             margin-top: 15px;
             display: flex;
             gap: 15px;
-            font-
+            font-size: 0.85em;
+        }
+
+        .footer-links a {
+            text-decoration: none;
+            color: #3498db;
+            font-weight: 500;
+        }
+
+        .footer-links a:hover { text-decoration: underline; }
+
+        @media (max-width: 500px) {
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🛡️ Project Monitoring System</h1>
+    <p class="last-update">최종 업데이트: <span id="update-time"></span></p>
+</header>
+
+<div class="dashboard-grid" id="dashboard-container">
+    </div>
+
+<script>
+    // 1. 학생/팀 데이터 (이 부분을 교수님이 수정하시면 됩니다)
+    const teams = [
+        { name: "1팀 (Alpha)", id: "user1", repo: "project-a", plagScore: 12, similarWith: "N/A" },
+        { name: "2팀 (Beta)", id: "user2", repo: "project-b", plagScore: 45, similarWith: "OpenSource_A" },
+        { name: "3팀 (Gamma)", id: "user3", repo: "project-c", plagScore: 88, similarWith: "Past_Assignment_02" },
+        { name: "4팀 (Delta)", id: "user4", repo: "project-d", plagScore: 5, similarWith: "N/A" }
+    ];
+
+    const container = document.getElementById('dashboard-container');
+
+    // 2. 카드 생성 로직
+    teams.forEach(team => {
+        let statusClass = "status-safe";
+        let badgeClass = "bg-safe";
+
+        if (team.plagScore >= 70) {
+            statusClass = "status-danger";
+            badgeClass = "bg-danger";
+        } else if (team.plagScore >= 30) {
+            statusClass = "status-warn";
+            badgeClass = "bg-warn";
+        }
+
+        const imgUrl = `https://github.com/${team.id}/${team.repo}/raw/main/repobeats/plots/_stats.svg`;
+        
+        const cardHtml = `
+            <div class="team-card ${statusClass}">
+                <div class="card-header">
+                    <div class="team-info">
+                        <h2>${team.name}</h2>
+                        <p>GitHub ID: ${team.id}</p>
+                    </div>
+                    <div class="plag-badge ${badgeClass}">표절율 ${team.plagScore}%</div>
+                </div>
+                <img src="${imgUrl}" class="repobeats-img" onerror="this.src='https://via.placeholder.com/400x200?text=Wait+for+Sync+or+Check+Action'">
+                <div class="footer-links">
+                    <span>⚠️ 유사대상: ${team.similarWith}</span>
+                    <a href="https://github.com/${team.id}/${team.repo}" target="_blank">Repository ↗</a>
+                </div>
+            </div>
+        `;
+        container.innerHTML += cardHtml;
+    });
+
+    // 업데이트 시간 표시
+    document.getElementById('update-time').innerText = new Date().toLocaleString();
+</script>
+
+</body>
+</html>
