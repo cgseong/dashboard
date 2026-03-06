@@ -3,19 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>해커톤 실시간 모니터링 시스템 v2.0</title>
+    <title>해커톤 모니터링 시스템 v2.0</title>
     <style>
         :root {
-            --bg-color: #f8f9fa;
+            --bg-color: #f4f7f9;
             --card-bg: #ffffff;
             --safe-color: #2ecc71;
             --warn-color: #f1c40f;
             --danger-color: #e74c3c;
+            --primary-color: #3498db;
             --text-main: #2c3e50;
         }
 
         body {
-            font-family: 'Pretendard', system-ui, sans-serif;
+            font-family: 'Pretendard', -apple-system, sans-serif;
             background-color: var(--bg-color);
             color: var(--text-main);
             margin: 0; padding: 20px;
@@ -23,32 +24,33 @@
 
         header { text-align: center; margin-bottom: 30px; }
         
-        /* 컨트롤러 영역: 정렬 및 필터링 */
+        /* 상단 컨트롤바 */
         .controls {
             max-width: 1400px;
             margin: 0 auto 30px;
             background: white;
-            padding: 20px;
+            padding: 15px 25px;
             border-radius: 12px;
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
 
-        .control-group { display: flex; align-items: center; gap: 10px; }
-        select, button {
+        .control-item { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        
+        select {
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 6px;
-            font-size: 0.9em;
-            cursor: pointer;
+            outline: none;
         }
 
         .dashboard-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
             gap: 25px;
             max-width: 1400px;
             margin: 0 auto;
@@ -58,105 +60,111 @@
             background: var(--card-bg);
             border-radius: 16px;
             padding: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
             border-top: 8px solid #ddd;
-            transition: 0.3s;
+            transition: all 0.3s ease;
         }
 
+        .team-card:hover { transform: translateY(-5px); }
+
+        /* 상태 색상 */
         .status-safe { border-top-color: var(--safe-color); }
         .status-warn { border-top-color: var(--warn-color); }
         .status-danger { border-top-color: var(--danger-color); }
 
-        .card-header { display: flex; justify-content: space-between; margin-bottom: 15px; }
-        .plag-badge { padding: 4px 10px; border-radius: 12px; color: white; font-weight: bold; font-size: 0.8em; }
-        .bg-safe { background-color: var(--safe-color); }
-        .bg-warn { background-color: var(--warn-color); color: #000; }
-        .bg-danger { background-color: var(--danger-color); }
-
-        .repobeats-img { width: 100%; border-radius: 8px; margin: 10px 0; min-height: 180px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .plag-badge { padding: 5px 12px; border-radius: 20px; color: white; font-weight: bold; font-size: 0.85em; }
         
-        .timer-info { font-weight: bold; color: #3498db; }
+        .repobeats-img { width: 100%; border-radius: 8px; margin: 10px 0; background: #fdfdfd; min-height: 200px; }
+        
+        .footer { font-size: 0.85em; color: #7f8c8d; display: flex; justify-content: space-between; align-items: center; }
+        .repo-link { color: var(--primary-color); text-decoration: none; font-weight: bold; }
+        
+        #timer { color: var(--primary-color); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🛡️ 해커톤 통합 모니터링 시스템 v2.0</h1>
-    <p>다음 자동 갱신까지: <span id="timer" class="timer-info">300</span>초 | 최종 업데이트: <span id="update-time">-</span></p>
+    <h1>🛡️ 해커톤 실시간 모니터링 v2.0</h1>
+    <p>자동 갱신까지 ⏳ <span id="timer">300</span>초 | 최종 업데이트: <span id="update-time">-</span></p>
 </header>
 
 <div class="controls">
-    <div class="control-group">
-        <label>🔍 필터:</label>
-        <select id="filter-select" onchange="renderDashboard()">
-            <option value="all">전체 보기</option>
-            <option value="danger">위험군 (70% 이상)</option>
-            <option value="warning">주의군 (30% 이상)</option>
-        </select>
+    <div style="display: flex; gap: 20px;">
+        <div class="control-item">
+            🔍 필터 
+            <select id="filter-select" onchange="renderDashboard()">
+                <option value="all">전체 보기</option>
+                <option value="danger">위험군 (70%↑)</option>
+                <option value="warning">주의군 (30%↑)</option>
+            </select>
+        </div>
+        <div class="control-item">
+            📊 정렬 
+            <select id="sort-select" onchange="renderDashboard()">
+                <option value="name">팀명순</option>
+                <option value="plag-desc">표절 점수 높은순</option>
+                <option value="plag-asc">표절 점수 낮은순</option>
+            </select>
+        </div>
     </div>
-    <div class="control-group">
-        <label>📊 정렬:</label>
-        <select id="sort-select" onchange="renderDashboard()">
-            <option value="name">팀명순</option>
-            <option value="plag-desc">표절 점수 높은순</option>
-            <option value="plag-asc">표절 점수 낮은순</option>
-        </select>
-    </div>
-    <button onclick="location.reload()" style="background: #3498db; color: white; border: none;">즉시 새로고침</button>
+    <button onclick="location.reload()" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">즉시 새로고침</button>
 </div>
 
 <div class="dashboard-grid" id="dashboard-container"></div>
 
 <script>
-    // 1. 학생/팀 데이터 (쉼표 수정 완료)
+    // 1. 데이터 (쉼표 오류 수정 완료)
     const teams = [
         { name: "1팀 (Alpha)", id: "user1", repo: "project-a", plagScore: 12, similarWith: "N/A" },
         { name: "2팀 (Beta)", id: "user2", repo: "project-b", plagScore: 45, similarWith: "OpenSource_A" },
         { name: "3팀 (Gamma)", id: "user3", repo: "project-c", plagScore: 88, similarWith: "Past_Assignment_02" },
-        { name: "4팀 (Delta)", id: "cgseong", repo: "github-leaderboard", plagScore: 5, similarWith: "N/A" },
+        { name: "4팀 (Delta)", id: "cgseong", repo: "github-leaderboard", plagScore: 5, similarWith: "N/A" }, // 쉼표 추가됨
         { name: "5팀 (Astro)", id: "cgseong", repo: "github-leaderboard", plagScore: 75, similarWith: "N/A" }
     ];
 
-    let countdown = 300; // 5분(300초) 자동 새로고침 설정
+    let timeLeft = 300; 
 
     function renderDashboard() {
-        const filterVal = document.getElementById('filter-select').value;
-        const sortVal = document.getElementById('sort-select').value;
+        const filter = document.getElementById('filter-select').value;
+        const sort = document.getElementById('sort-select').value;
         const container = document.getElementById('dashboard-container');
-        
-        // 데이터 필터링
-        let filteredTeams = teams.filter(t => {
-            if (filterVal === 'danger') return t.plagScore >= 70;
-            if (filterVal === 'warning') return t.plagScore >= 30;
+
+        // 필터링
+        let displayTeams = teams.filter(t => {
+            if (filter === 'danger') return t.plagScore >= 70;
+            if (filter === 'warning') return t.plagScore >= 30;
             return true;
         });
 
-        // 데이터 정렬
-        filteredTeams.sort((a, b) => {
-            if (sortVal === 'name') return a.name.localeCompare(b.name);
-            if (sortVal === 'plag-desc') return b.plagScore - a.plagScore;
-            if (sortVal === 'plag-asc') return a.plagScore - b.plagScore;
+        // 정렬
+        displayTeams.sort((a, b) => {
+            if (sort === 'name') return a.name.localeCompare(b.name);
+            if (sort === 'plag-desc') return b.plagScore - a.plagScore;
+            if (sort === 'plag-asc') return a.plagScore - b.plagScore;
         });
 
-        // 화면 렌더링
+        // 렌더링
         container.innerHTML = '';
-        filteredTeams.forEach(team => {
-            let statusClass = team.plagScore >= 70 ? "status-danger" : (team.plagScore >= 30 ? "status-warn" : "status-safe");
-            let badgeClass = team.plagScore >= 70 ? "bg-danger" : (team.plagScore >= 30 ? "bg-warn" : "bg-safe");
+        displayTeams.forEach(team => {
+            const statusClass = team.plagScore >= 70 ? "status-danger" : (team.plagScore >= 30 ? "status-warn" : "status-safe");
+            const badgeClass = team.plagScore >= 70 ? "bg-danger" : (team.plagScore >= 30 ? "bg-warn" : "bg-safe");
             const imgUrl = `https://github.com/${team.id}/${team.repo}/raw/main/repobeats/plots/_stats.svg`;
 
             container.innerHTML += `
                 <div class="team-card ${statusClass}">
                     <div class="card-header">
                         <div>
-                            <h2 style="margin:0; font-size:1.2em;">${team.name}</h2>
+                            <h2 style="margin:0;">${team.name}</h2>
                             <small>${team.id}</small>
                         </div>
-                        <div class="plag-badge ${badgeClass}">표절 ${team.plagScore}%</div>
+                        <div class="plag-badge ${badgeClass}">${team.plagScore}%</div>
                     </div>
                     <img src="${imgUrl}" class="repobeats-img" onerror="this.src='https://via.placeholder.com/400x200?text=Wait+for+Sync'">
-                    <div style="font-size:0.85em; color:#666;">
-                        <span>⚠️ 유사: ${team.similarWith}</span> | <a href="https://github.com/${team.id}/${team.repo}" target="_blank">Repo ↗</a>
+                    <div class="footer">
+                        <span>⚠️ 유사: ${team.similarWith}</span>
+                        <a href="https://github.com/${team.id}/${team.repo}" class="repo-link" target="_blank">View Repo ↗</a>
                     </div>
                 </div>
             `;
@@ -164,16 +172,14 @@
         document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
     }
 
-    // 자동 새로고침 타이머
+    // 타이머 기능
     setInterval(() => {
-        countdown--;
-        document.getElementById('timer').innerText = countdown;
-        if (countdown <= 0) location.reload();
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+        if (timeLeft <= 0) location.reload();
     }, 1000);
 
-    // 초기 실행
     window.onload = renderDashboard;
 </script>
-
 </body>
 </html>
