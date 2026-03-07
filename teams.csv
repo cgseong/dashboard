@@ -1,6 +1,3 @@
 name,id,repo,plagScore,similarWith
-1팀 (Alpha),user1,project-a,12,N/A
-2팀 (Beta),user2,project-b,45,OpenSource_A
-3팀 (Gamma),user3,project-c,88,Past_Assignment_02
-4팀 (Delta),cgseong,github-leaderboard,5,N/A
+4팀 (Delta),cgseong,github-leaderboard,5,OpenSource_A
 5팀 (Astro),cgseong,github-leaderboard,75,N/A
