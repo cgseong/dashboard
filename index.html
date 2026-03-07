@@ -2,150 +2,91 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>해커톤 모니터링 시스템 v2.0</title>
+    <title>해커톤 실시간 모니터링 v3.0 (CSV 연동)</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
-        :root {
-            --bg-color: #f4f7f9;
-            --card-bg: #ffffff;
-            --safe-color: #2ecc71;
-            --warn-color: #f1c40f;
-            --danger-color: #e74c3c;
-            --primary-color: #3498db;
-            --text-main: #2c3e50;
-        }
-
-        body {
-            font-family: 'Pretendard', -apple-system, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0; padding: 20px;
-        }
-
+        /* 기존 v2.0 스타일과 동일 (생략) */
+        :root { --bg-color: #f4f7f9; --card-bg: #ffffff; --safe-color: #2ecc71; --warn-color: #f1c40f; --danger-color: #e74c3c; --primary-color: #3498db; --text-main: #2c3e50; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px; }
         header { text-align: center; margin-bottom: 30px; }
-        
-        /* 상단 컨트롤바 */
-        .controls {
-            max-width: 1400px;
-            margin: 0 auto 30px;
-            background: white;
-            padding: 15px 25px;
-            border-radius: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-
-        .control-item { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-        
-        select {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            outline: none;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-            gap: 25px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        .team-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-            border-top: 8px solid #ddd;
-            transition: all 0.3s ease;
-        }
-
-        .team-card:hover { transform: translateY(-5px); }
-
-        /* 상태 색상 */
+        .controls { max-width: 1400px; margin: 0 auto 30px; background: white; padding: 15px 25px; border-radius: 12px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 25px; max-width: 1400px; margin: 0 auto; }
+        .team-card { background: var(--card-bg); border-radius: 16px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-top: 8px solid #ddd; transition: all 0.3s ease; }
         .status-safe { border-top-color: var(--safe-color); }
         .status-warn { border-top-color: var(--warn-color); }
         .status-danger { border-top-color: var(--danger-color); }
-
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .plag-badge { padding: 5px 12px; border-radius: 20px; color: white; font-weight: bold; font-size: 0.85em; }
-        
         .repobeats-img { width: 100%; border-radius: 8px; margin: 10px 0; background: #fdfdfd; min-height: 200px; }
-        
+        .bg-safe { background-color: var(--safe-color); }
+        .bg-warn { background-color: var(--warn-color); color: #000; }
+        .bg-danger { background-color: var(--danger-color); }
         .footer { font-size: 0.85em; color: #7f8c8d; display: flex; justify-content: space-between; align-items: center; }
         .repo-link { color: var(--primary-color); text-decoration: none; font-weight: bold; }
-        
-        #timer { color: var(--primary-color); font-weight: bold; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>🛡️ 해커톤 실시간 모니터링 v2.0</h1>
+    <h1>🛡️ 해커톤 실시간 모니터링 v3.0</h1>
     <p>자동 갱신까지 ⏳ <span id="timer">300</span>초 | 최종 업데이트: <span id="update-time">-</span></p>
 </header>
 
 <div class="controls">
     <div style="display: flex; gap: 20px;">
-        <div class="control-item">
-            🔍 필터 
-            <select id="filter-select" onchange="renderDashboard()">
-                <option value="all">전체 보기</option>
-                <option value="danger">위험군 (70%↑)</option>
-                <option value="warning">주의군 (30%↑)</option>
-            </select>
-        </div>
-        <div class="control-item">
-            📊 정렬 
-            <select id="sort-select" onchange="renderDashboard()">
-                <option value="name">팀명순</option>
-                <option value="plag-desc">표절 점수 높은순</option>
-                <option value="plag-asc">표절 점수 낮은순</option>
-            </select>
-        </div>
+        <select id="filter-select" onchange="renderDashboard()">
+            <option value="all">전체 보기</option>
+            <option value="danger">위험군 (70%↑)</option>
+            <option value="warning">주의군 (30%↑)</option>
+        </select>
+        <select id="sort-select" onchange="renderDashboard()">
+            <option value="name">팀명순</option>
+            <option value="plag-desc">표절 점수 높은순</option>
+            <option value="plag-asc">표절 점수 낮은순</option>
+        </select>
     </div>
-    <button onclick="location.reload()" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">즉시 새로고침</button>
+    <button onclick="loadData()" style="padding: 8px 16px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer;">데이터 다시 읽기</button>
 </div>
 
 <div class="dashboard-grid" id="dashboard-container"></div>
 
 <script>
-    // 1. 데이터 (쉼표 오류 수정 완료)
-    const teams = [
-        { name: "1팀 (Alpha)", id: "user1", repo: "project-a", plagScore: 12, similarWith: "N/A" },
-        { name: "2팀 (Beta)", id: "user2", repo: "project-b", plagScore: 45, similarWith: "OpenSource_A" },
-        { name: "3팀 (Gamma)", id: "user3", repo: "project-c", plagScore: 88, similarWith: "Past_Assignment_02" },
-        { name: "4팀 (Delta)", id: "cgseong", repo: "github-leaderboard", plagScore: 5, similarWith: "N/A" }, // 쉼표 추가됨
-        { name: "5팀 (Astro)", id: "cgseong", repo: "github-leaderboard", plagScore: 75, similarWith: "N/A" }
-    ];
+    let teams = []; // 외부에서 읽어올 데이터 저장소
+    let timeLeft = 300;
 
-    let timeLeft = 300; 
+    // CSV 파일 로드 함수
+    function loadData() {
+        Papa.parse("teams.csv", {
+            download: true,
+            header: true,
+            dynamicTyping: true,
+            complete: function(results) {
+                teams = results.data.filter(row => row.name); // 빈 줄 제외
+                renderDashboard();
+            },
+            error: function(err) {
+                console.error("CSV 로드 실패:", err);
+                alert("teams.csv 파일을 찾을 수 없습니다.");
+            }
+        });
+    }
 
     function renderDashboard() {
         const filter = document.getElementById('filter-select').value;
         const sort = document.getElementById('sort-select').value;
         const container = document.getElementById('dashboard-container');
 
-        // 필터링
-        let displayTeams = teams.filter(t => {
-            if (filter === 'danger') return t.plagScore >= 70;
-            if (filter === 'warning') return t.plagScore >= 30;
-            return true;
-        });
+        let displayTeams = [...teams];
 
-        // 정렬
+        if (filter === 'danger') displayTeams = displayTeams.filter(t => t.plagScore >= 70);
+        else if (filter === 'warning') displayTeams = displayTeams.filter(t => t.plagScore >= 30);
+
         displayTeams.sort((a, b) => {
             if (sort === 'name') return a.name.localeCompare(b.name);
             if (sort === 'plag-desc') return b.plagScore - a.plagScore;
             if (sort === 'plag-asc') return a.plagScore - b.plagScore;
         });
 
-        // 렌더링
         container.innerHTML = '';
         displayTeams.forEach(team => {
             const statusClass = team.plagScore >= 70 ? "status-danger" : (team.plagScore >= 30 ? "status-warn" : "status-safe");
@@ -155,10 +96,7 @@
             container.innerHTML += `
                 <div class="team-card ${statusClass}">
                     <div class="card-header">
-                        <div>
-                            <h2 style="margin:0;">${team.name}</h2>
-                            <small>${team.id}</small>
-                        </div>
+                        <div><h2>${team.name}</h2><small>${team.id}</small></div>
                         <div class="plag-badge ${badgeClass}">${team.plagScore}%</div>
                     </div>
                     <img src="${imgUrl}" class="repobeats-img" onerror="this.src='https://via.placeholder.com/400x200?text=Wait+for+Sync'">
@@ -172,14 +110,13 @@
         document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
     }
 
-    // 타이머 기능
     setInterval(() => {
         timeLeft--;
         document.getElementById('timer').innerText = timeLeft;
         if (timeLeft <= 0) location.reload();
     }, 1000);
 
-    window.onload = renderDashboard;
+    window.onload = loadData; // 시작 시 데이터 로드
 </script>
 </body>
 </html>
