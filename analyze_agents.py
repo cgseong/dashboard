@@ -10,43 +10,72 @@ def analyze_agent_repo(repo_path):
         'hasEvals': False
     }
     
-    # 분석 로직 (앞서 설명한 정규식 기반 스캔)
-    for root, dirs, files in os.walk(repo_path):
+    # 1. 구조적 검사 (평가셋 폴더 여부)
+    for root, dirs, _ in os.walk(repo_path):
+        if any(keyword in root.lower() for keyword in ['evals', 'test_cases', 'ragas', 'benchmarks']):
+            summary['hasEvals'] = True
+            break
+
+    # 2. 파일 내용 분석
+    for root, _, files in os.walk(repo_path):
+        # 제외할 폴더 (라이브러리 등)
+        if any(x in root for x in ['venv', '.git', '__pycache__', 'node_modules']):
+            continue
+
         for file in files:
-            if file.endswith(('.py', '.js', '.ts', '.yaml', '.json')):
+            file_path = os.path.join(root, file)
+            ext = os.path.splitext(file)[1].lower()
+            
+            if ext in ('.py', '.js', '.ts', '.yaml', '.json', '.txt'):
                 try:
-                    with open(os.path.join(root, file), 'r', encoding='utf-8') as f:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                         code = f.read()
-                        # 프롬프트 길이
-                        prompts = re.findall(r'["\']{3}(.*?)["\']{3}', code, re.DOTALL)
-                        summary['promptLen'] = max([len(p) for p in prompts] + [summary['promptLen']])
-                        # 도구 및 로직 점수
-                        summary['toolCount'] += len(re.findall(r'@tool|define_tool|tools=\[', code))
-                        summary['logicScore'] += len(re.findall(r'StateGraph|ConditionalEdge|ReAct|agent', code, re.I))
-                        if re.search(r'evals/|ragas|test_cases', root.lower()):
-                            summary['hasEvals'] = True
-                except: continue
+                        
+                        # 프롬프트 길이 측정 개선 (텍스트 파일은 전체 길이, 코드는 멀티라인 분석)
+                        if ext in ('.txt', '.yaml'):
+                            summary['promptLen'] = max(summary['promptLen'], len(code))
+                        else:
+                            prompts = re.findall(r'["\']{3}(.*?)["\']{3}', code, re.DOTALL)
+                            if prompts:
+                                summary['promptLen'] = max([len(p) for p in prompts] + [summary['promptLen']])
+                        
+                        # 도구 활용 및 로직 점수 (중복 최소화를 위해 단어 경계 \b 활용)
+                        summary['toolCount'] += len(re.findall(r'@tool|define_tool|tools\s*=\s*\[', code))
+                        summary['logicScore'] += len(re.findall(r'\b(StateGraph|ConditionalEdge|ReAct|AgentExecutor|node)\b', code, re.I))
+                        
+                except Exception as e:
+                    print(f"⚠️ 파일 읽기 오류 ({file}): {e}")
+                    continue
     return summary
 
-# 메인 실행부
 def update_dashboard_data():
-    # 1. 기존 기본 정보(팀명, ID 등)가 담긴 CSV 읽기
-    df = pd.read_csv("teams.csv")
+    try:
+        df = pd.read_csv("teams.csv")
+    except FileNotFoundError:
+        print("❌ teams.csv 파일을 찾을 수 없습니다.")
+        return
 
-    # 2. 각 팀 폴더를 돌며 기술 지표 스캔
+    # 기술 지표 컬럼이 없으면 초기화
+    for col in ['promptLen', 'toolCount', 'logicScore', 'hasEvals']:
+        if col not in df.columns:
+            df[col] = 0 if col != 'hasEvals' else False
+
     for index, row in df.iterrows():
-        repo_local_path = f"./submissions/{row['name']}" # 팀 폴더 경로
+        # 폴더 이름이 팀명과 정확히 일치하는지 확인
+        repo_local_path = f"./submissions/{row['name']}"
         if os.path.exists(repo_local_path):
+            print(f"🔍 분석 중: {row['name']}...")
             tech_data = analyze_agent_repo(repo_local_path)
-            # 데이터 업데이트
+            
             df.at[index, 'promptLen'] = tech_data['promptLen']
             df.at[index, 'toolCount'] = tech_data['toolCount']
             df.at[index, 'logicScore'] = tech_data['logicScore']
             df.at[index, 'hasEvals'] = tech_data['hasEvals']
+        else:
+            print(f"⏩ 폴더 없음 (건너뜀): {row['name']}")
 
-    # 3. 업데이트된 내용을 다시 CSV로 저장 (대시보드가 이 파일을 읽음)
     df.to_csv("teams.csv", index=False, encoding='utf-8-sig')
-    print("✅ 기술 지표 분석 및 teams.csv 업데이트 완료!")
+    print("✅ 분석 완료 및 teams.csv 업데이트 성공!")
 
 if __name__ == "__main__":
     update_dashboard_data()
