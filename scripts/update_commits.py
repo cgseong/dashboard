@@ -3,8 +3,8 @@ import csv, os, requests
 from datetime import datetime, timezone
 
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
-SINCE = "2025-03-01T00:00:00Z"   # 해커톤 시작 시각 ISO8601
-UNTIL = "2025-03-31T23:59:59Z"  # 해커톤 종료 시각
+SINCE = "2025-10-01T00:00:00Z"   # 해커톤 시작 시각 ISO8601
+UNTIL = "2026-03-31T23:59:59Z"  # 해커톤 종료 시각
 
 headers = {
     "Accept": "application/vnd.github+json",
