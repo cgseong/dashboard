@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>해커톤 실시간 모니터링 v3.4 (Agent 기술 분석)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f0f2f5;
+      --card-bg: #ffffff;
+      --safe-color: #2ecc71;
+      --warn-color: #f1c40f;
+      --danger-color: #e74c3c;
+      --primary-color: #3498db;
+      --text-main: #1a202c;
+    }
+
+    body {
+      font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      margin: 0;
+      padding: 30px;
+      line-height: 1.6;
+    }
+
+    header { text-align: center; margin-bottom: 45px; }
+    header h1 { font-size: 2.8rem; margin-bottom: 15px; color: #2c3e50; }
+
+    .controls {
+      max-width: 2400px;
+      margin: 0 auto 36px;
+      background: #ffffff;
+      padding: 20px 30px;
+      border-radius: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(540px, 1fr));
+      gap: 40px;
+      max-width: 2400px;
+      margin: 0 auto 60px;
+    }
+
+    .team-card {
+      background: var(--card-bg);
+      border-radius: 30px;
+      padding: 30px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.06);
+      border-top: 15px solid #cbd5e0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --- 신규 추가: 기술 분석 표 스타일 --- */
+    .analysis-section {
+      max-width: 2400px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    }
+
+    .analysis-section h2 { margin-top: 0; margin-bottom: 20px; font-size: 1.8rem; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 1.1rem;
+    }
+
+    th, td {
+      padding: 15px;
+      text-align: center;
+      border-bottom: 1px solid #edf2f7;
+    }
+
+    th { background-color: #f8fafc; color: #4a5568; font-weight: 700; }
+    tr:hover { background-color: #fcfcfc; }
+
+    .badge-eval { background: #ebf8ff; color: #3182ce; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+
+    /* 기존 카드 내부 스타일 생략 (v3.3과 동일) */
+    .status-safe { border-top-color: var(--safe-color); }
+    .status-warn { border-top-color: var(--warn-color); }
+    .status-danger { border-top-color: var(--danger-color); }
+    .repobeats-img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; border-radius: 15px; margin: 20px 0; background: #f8fafc; }
+    .plag-badge { padding: 8px 16px; border-radius: 12px; color: white; font-weight: 800; font-size: 1rem; }
+    .bg-safe { background-color: var(--safe-color); }
+    .bg-warn { background-color: var(--warn-color); color: #000; }
+    .bg-danger { background-color: var(--danger-color); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🛡️ 해커톤 실시간 모니터링 <small style="font-size: 0.5em;">v3.4</small></h1>
+  <p>자동 갱신: <span id="timer">300</span>초 | 업데이트: <span id="update-time">-</span></p>
+</header>
+
+<div class="controls">
+  <select id="sort-select" onchange="renderDashboard()">
+    <option value="name">팀명순</option>
+    <option value="plag-desc">표절 점수순</option>
+    <option value="prompt-desc">프롬프트 길이순</option>
+  </select>
+  <button onclick="loadData()">지금 업데이트</button>
+</div>
+
+<div class="dashboard-grid" id="dashboard-container"></div>
+
+<div class="analysis-section">
+  <h2>📊 AI Agent 기술 지표 요약</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>팀명</th>
+        <th>프롬프트 최대 길이</th>
+        <th>도구(Tool) 활용수</th>
+        <th>로직 복잡도 점수</th>
+        <th>평가셋(Evals) 유무</th>
+        <th>표절 점수</th>
+      </tr>
+    </thead>
+    <tbody id="analysis-table-body">
+      </tbody>
+  </table>
+</div>
+
+<script>
+  let teams = [];
+  let timeLeft = 300;
+
+  function loadData() {
+    Papa.parse("teams.csv?t=" + new Date().getTime(), {
+      download: true, header: true, dynamicTyping: true,
+      complete: function(results) {
+        teams = results.data.filter(row => row.name);
+        renderDashboard();
+      }
+    });
+  }
+
+  function renderDashboard() {
+    const container = document.getElementById('dashboard-container');
+    const tableBody = document.getElementById('analysis-table-body');
+    const sort = document.getElementById('sort-select').value;
+
+    let displayTeams = [...teams];
+
+    // 정렬 로직 (프롬프트 길이 정렬 추가)
+    displayTeams.sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'plag-desc') return (b.plagScore || 0) - (a.plagScore || 0);
+      if (sort === 'prompt-desc') return (b.promptLen || 0) - (a.promptLen || 0);
+      return 0;
+    });
+
+    // 1. 카드 렌더링
+    container.innerHTML = '';
+    displayTeams.forEach(team => {
+      const score = team.plagScore || 0;
+      const statusClass = score >= 70 ? "status-danger" : score >= 30 ? "status-warn" : "status-safe";
+      const badgeClass = score >= 70 ? "bg-danger" : score >= 30 ? "bg-warn" : "bg-safe";
+      
+      container.innerHTML += `
+        <div class="team-card ${statusClass}">
+          <h2>${team.name}</h2>
+          <img src="https://github.com/${team.id}/${team.repo}/raw/main/repobeats/plots/_stats.svg" class="repobeats-img" onerror="this.src='https://via.placeholder.com/600x337?text=Syncing...'">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+             <span class="plag-badge ${badgeClass}">표절 ${score}%</span>
+             <span>커밋: <b>${team.commits || 0}</b></span>
+          </div>
+        </div>
+      `;
+    });
+
+    // 2. 기술 분석 표 렌더링
+    tableBody.innerHTML = '';
+    displayTeams.forEach(team => {
+      tableBody.innerHTML += `
+        <tr>
+          <td><b>${team.name}</b></td>
+          <td>${(team.promptLen || 0).toLocaleString()} 자</td>
+          <td>${team.toolCount || 0} 개</td>
+          <td>${team.logicScore || 0} 점</td>
+          <td>${team.hasEvals ? '<span class="badge-eval">YES</span>' : '-'}</td>
+          <td style="color:${(team.plagScore||0) >= 70 ? 'red' : 'inherit'}">${team.plagScore || 0}%</td>
+        </tr>
+      `;
+    });
+
+    document.getElementById('update-time').innerText = new Date().toLocaleTimeString();
+  }
+
+  setInterval(() => { timeLeft--; document.getElementById('timer').innerText = timeLeft; if (timeLeft <= 0) loadData(); }, 1000);
+  window.onload = loadData;
+</script>
+</body>
+</html>
